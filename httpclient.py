@@ -61,6 +61,7 @@ class HTTPClient(object):
         done = False
         while not done:
             part = sock.recv(1024)
+            print(part)
             if (part):
                 buffer.extend(part)
             else:
@@ -70,6 +71,8 @@ class HTTPClient(object):
     def GET(self, url, args=None):
         code = 500
         body = ""
+        
+
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
