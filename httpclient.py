@@ -18,9 +18,11 @@
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
 
+import json
 import sys
 import socket
 import re
+from typing import Dict
 # you may use urllib to encode data appropriately
 import urllib.parse
 
@@ -41,13 +43,36 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        code = re.findall(r'(?=\d{3})\w+', data)[0]
+        code = int(code)
+        return code
 
-    def get_headers(self,data):
-        return None
+    def get_headers(self,data): 
+        
+        data_list = data.split('\r\n')
+        split_point = data_list.index('')
+        header_list = []
+
+        for x in range(0, split_point):
+            header_list.append(data_list[x])
+
+        header_string = ''
+        for line in header_list:
+            header_string += line + '\r\n'
+        
+        return header_string
 
     def get_body(self, data):
-        return None
+        
+        data_list = data.split('\r\n')
+        split_point = data_list.index('')
+        body_list = []
+        for x in range(split_point, len(data_list)):
+            body_list.append(data_list[x])   
+        body_string = ''
+        for line in body_list:
+            body_string += line + '\r\n'
+        return body_string
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -61,7 +86,6 @@ class HTTPClient(object):
         done = False
         while not done:
             part = sock.recv(1024)
-            print(part)
             if (part):
                 buffer.extend(part)
             else:
@@ -69,15 +93,45 @@ class HTTPClient(object):
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
-        code = 500
-        body = ""
         
-
+        hostname, path = self.setup(url)
+        
+        
+        to_send = f'GET {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nConnection: close\r\n\r\n'        
+        
+        self.sendall(to_send)
+        data = self.recvall(self.socket)
+        self.close()
+        
+        code = self.get_code(data)  
+        body = self.get_body(data)
+        headers = self.get_headers(data)        
+        # print(headers + body)      
+        
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
-        code = 500
-        body = ""
+
+        hostname, path = self.setup(url)
+        
+    
+        bytes = len(json.dumps(args).encode('utf-8'))
+        to_send = f'POST {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nContent-Length: {bytes}\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n{args}'
+
+        #to_send = f'POST {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n'        
+    
+        self.sendall(to_send)
+        
+        data = self.recvall(self.socket)
+        
+        print('Hey there, this data \n' + data)
+        
+        self.close()
+        code = self.get_code(data)
+        body = self.get_body(data)
+        headers = self.get_headers(data)
+
+        # print(headers + body)
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
@@ -85,6 +139,28 @@ class HTTPClient(object):
             return self.POST( url, args )
         else:
             return self.GET( url, args )
+
+    def setup(self, url):
+        # check for http
+        if 'http' not in url:
+            new_url = 'http://' + url
+        else:
+            new_url = url
+        
+        # parse url info
+        hostname = urllib.parse.urlparse(new_url).hostname
+        port = urllib.parse.urlparse(new_url).port
+        path = urllib.parse.urlparse(new_url).path
+
+        if path == '':
+            path = '/'
+        if port == None:
+            port = 80
+        
+        # connect
+        self.connect(hostname, port)
+        
+        return (hostname, path)
     
 if __name__ == "__main__":
     client = HTTPClient()
