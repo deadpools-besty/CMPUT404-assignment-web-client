@@ -26,6 +26,7 @@ from typing import Dict
 # you may use urllib to encode data appropriately
 import urllib.parse
 
+
 def help():
     print("httpclient.py [GET/POST] [URL]\n")
 
@@ -95,8 +96,6 @@ class HTTPClient(object):
     def GET(self, url, args=None):
         
         hostname, path = self.setup(url)
-        
-        
         to_send = f'GET {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nConnection: close\r\n\r\n'        
         
         self.sendall(to_send)
@@ -106,32 +105,33 @@ class HTTPClient(object):
         code = self.get_code(data)  
         body = self.get_body(data)
         headers = self.get_headers(data)        
-        # print(headers + body)      
+        print(headers + body)      
         
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
 
         hostname, path = self.setup(url)
-        
-    
-        bytes = len(json.dumps(args).encode('utf-8'))
-        to_send = f'POST {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nContent-Length: {bytes}\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n{args}'
 
-        #to_send = f'POST {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n'        
-    
+        # found from https://stackoverflow.com/questions/4163263/transferring-dictionary-via-post-request
+        if args != None:
+            encoded_args = urllib.parse.urlencode(args)
+            bytes_len = len(encoded_args)
+        else:
+            encoded_args = args
+            bytes_len = 0
+        
+        to_send = f'POST {path} HTTP/1.1\r\nUser-Agent: python/3.8.5\r\nHost: {hostname}\r\nAccept: */*\r\nContent-Length: {bytes_len}\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n{encoded_args}'
+
         self.sendall(to_send)
-        
         data = self.recvall(self.socket)
-        
-        print('Hey there, this data \n' + data)
-        
+      
         self.close()
         code = self.get_code(data)
         body = self.get_body(data)
         headers = self.get_headers(data)
 
-        # print(headers + body)
+        print(headers + body)
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
